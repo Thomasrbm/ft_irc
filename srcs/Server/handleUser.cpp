@@ -18,7 +18,7 @@ void Server::welcomeUser(const int &clientFd, const std::string &name) const {
 }
 
 void Server::handleNick(int clientFd, const std::string &line) {
-	std::string nick = getParam(NICK_CMD_LENGTH, line);
+	std::string nick = getParam(NICK_CMD, line);
 
 	if (nick.empty()) {
 		sendRPL(clientFd, ERR_NONICKNAMEGIVEN, this->findNameById(clientFd), "no nickname given");
@@ -40,7 +40,7 @@ void Server::handleNick(int clientFd, const std::string &line) {
 }
 
 void Server::handleUsername(int clientFd, const std::string &line) {
-	std::string username = getParam(USER_CMD_LENGTH, line);
+	std::string username = getParam(USER_CMD, line);
 
 	if (username.empty()) {
 		sendRPL(clientFd, ERR_NEEDMOREPARAMS, this->findNameById(clientFd), "no username given");
@@ -54,8 +54,8 @@ void Server::handleUsername(int clientFd, const std::string &line) {
 	this->Users[clientFd].tryRegisterUser();
 }
 
-int Server::findIdByName(const std::string &name) {
-	for (std::map<int, User>::iterator it = this->Users.begin(); it != this->Users.end(); ++it) {
+int Server::findIdByName(const std::string &name) const {
+	for (std::map<int, User>::const_iterator it = this->Users.begin(); it != this->Users.end(); ++it) {
 		if (it->second.getNickname() == name) {
 			return (it->first);
 		}
@@ -63,8 +63,8 @@ int Server::findIdByName(const std::string &name) {
 	return (-1);
 }
 
-std::string Server::findNameById(const int &clientFd) {
-	for (std::map<int, User>::iterator it = this->Users.begin(); it != this->Users.end(); ++it) {
+std::string Server::findNameById(const int &clientFd) const {
+	for (std::map<int, User>::const_iterator it = this->Users.begin(); it != this->Users.end(); ++it) {
 		if (it->second.getFd() == clientFd) {
 			return (it->second.getNickname());
 		}

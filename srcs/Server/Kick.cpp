@@ -67,6 +67,12 @@ void Server::handleKick(int clientFd, const std::string &line) {
 					sendRPL(clientFd, ERR_USERNOTINCHANNEL, kick, kick + " is not in this channel");
 					return ;
 				} else {
+					// RFC confirmation - diffuser avant de retirer le membre
+					std::string kicker = findNameById(clientFd);
+					std::string reason = "Kicked by " + kicker;
+					broadcastKickConfirmation(channelName, kicker, kick, reason);
+					
+					// Envoyer confirmation à la victime
 					sendRPL(kickId, ERR_KICKEDFROMCHAN, kick, kick + " just got kicked from " + channelName);
 					std::cout << kick << " VA ETRE KICK DE " << channelName << " SON FD EST" << kickId << std::endl;
 					it->removeMember(kickId);
