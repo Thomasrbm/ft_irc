@@ -47,7 +47,10 @@
 #define ERR_PASSWDMISMATCH "464"
 #define ERR_INVALIDUSERNAME "468"
 #define ERR_KICKEDFROMCHAN	"470"
+#define ERR_CHANNELISFULL "471"
 #define ERR_UNKNOWNMODE "472"
+#define ERR_INVITEONLYCHAN "473"
+#define ERR_BADCHANNELKEY "475"
 #define ERR_NOPRIVILEGES "481"
 
 const std::string getParam(int cmdLength, const std::string &line);

@@ -60,6 +60,7 @@ public:
 	void	parseInput(int userFd);
 	bool	hasPassword() const;
 	void	sendRPL(const int &clientFd, const std::string code, const std::string &nick, const std::string &message) const;
+	void	sendChannelError(const int &clientFd, const std::string &code, const std::string &nick, const std::string &channel, const std::string &message) const;
 	void	handleNick(int clientFd, const std::string &line);
 	void	handleUsername(int clientFd, const std::string &line);
 	void	handleLine(int clientFd, const std::string &line);
@@ -80,7 +81,7 @@ public:
 	std::string	parseJoinChannelName(const std::string &line);
 	bool		channelExists(const std::string &channelName);
 	void		createChannel(const std::string &channelName, int creatorFd);
-	void		joinExistingChannel(const std::string &channelName, int userFd);
+	bool		joinExistingChannel(const std::string &channelName, int userFd);
 
 	// Messages dans les channels (chat normal IRC) irssi écrit privmsg direct
 	void		handleChannelMessage(int clientFd, const std::string &line);

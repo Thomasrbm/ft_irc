@@ -190,6 +190,11 @@ void Server::sendRPL(const int &clientFd, std::string code, const std::string &n
 	send(clientFd, buffer.c_str(), buffer.size(), 0);
 }
 
+void Server::sendChannelError(const int &clientFd, const std::string &code, const std::string &nick, const std::string &channel, const std::string &message) const {
+	std::string buffer = ":server " + code + " " + nick + " " + channel + " :" + message + "\r\n";
+	send(clientFd, buffer.c_str(), buffer.size(), 0);
+}
+
 void Server::handlePass(const int clientFd, const std::string &line) {
 	if (this->password.empty()) {
 		return ;
