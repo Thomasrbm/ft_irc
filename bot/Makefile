@@ -1,4 +1,4 @@
-NAME = ircserv
+NAME = botIRC
 
 CC = c++
 CFLAGS = -Wall -Wextra -Werror -g3 -std=c++98
@@ -6,20 +6,8 @@ CFLAGS = -Wall -Wextra -Werror -g3 -std=c++98
 OBJDIR = ./objects
 
 SRCS = srcs/main.cpp \
-	   srcs/User.cpp \
-	   srcs/Channel.cpp \
-	   srcs/Server/Server.cpp \
-	   srcs/Server/Mode.cpp \
-	   srcs/Server/Join.cpp \
-	   srcs/Server/Kick.cpp \
-	   srcs/Server/Message.cpp \
-	   srcs/Server/handleUser.cpp \
-	   srcs/Server/Topic.cpp \
-	   srcs/Server/Invite.cpp \
-	   srcs/Server/Part.cpp \
-	   srcs/Server/reply.cpp \
-	   srcs/Server/DCC.cpp \
-	   srcs/Utils.cpp \
+	   srcs/Bot.cpp \
+	../srcs/Utils.cpp \
 
 OBJS = $(patsubst %.cpp,$(OBJDIR)/%.o,$(SRCS))
 
@@ -27,7 +15,7 @@ RM = rm -f
 
 all: $(NAME)
 	@echo "Compiled successfully!"
-	@EXEC_LINE="=> execute ./$(NAME) <port> <password>"; \
+	@EXEC_LINE="=> execute ./$(NAME) <port> <password> optional: <ip>(set to localhost by default)"; \
 	LEN=$$(echo "$$EXEC_LINE" | wc -c); \
 	LEN=$$((LEN - 1)); \
 	BORDER_LEN=$$((LEN + 2)); \

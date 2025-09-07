@@ -82,7 +82,6 @@ void Server::runServer() {
 	while (running) {
 		int eventNumber = epoll_wait(this->epollFd, this->events, MAX_EVENTS, -1);
 		if (eventNumber == -1) {
-			std::cerr << "Failed to get events" << std::endl;
 			continue ;
 		}
 
@@ -96,7 +95,13 @@ void Server::runServer() {
 	}
 }
 
+void Server::handleCapReq(const int &userFd) const {
+    std::string msg = ":server CAP * LS :multi-prefix sasl\r\n";
+    send(userFd, msg.c_str(), msg.length(), 0);
+}
+
 void Server::acceptUser() {
+	std::cout << "TENTATIVE DE CONNECTION" << std::endl;
 	int userFd = accept(this->socketfd, NULL, NULL);
 	if (userFd < 0) {
 		std::cerr << "Failed to accept User" << std::endl;
@@ -104,6 +109,20 @@ void Server::acceptUser() {
 	}
 
 	fcntl(userFd, F_SETFL, O_NONBLOCK);
+
+	// // Récupérer l'adresse IP du client
+    // struct sockaddr_in clientAddr;
+    // socklen_t addrLen = sizeof(clientAddr);
+    // if (getpeername(userFd, (struct sockaddr*)&clientAddr, &addrLen) == -1) {
+    //     std::cerr << "Failed to get client IP" << std::endl;
+    //     return;
+    // }
+    // std::cout << "New User connected from IP: "
+    //           << inet_ntoa(clientAddr.sin_addr)
+    //           << " Port: "
+    //           << ntohs(clientAddr.sin_port)
+    //           << std::endl;
+
 
 	epoll_event UserEvent;
 	UserEvent.events = EPOLLIN;
@@ -120,12 +139,17 @@ void Server::acceptUser() {
 	if (!this->hasPassword()) {
 		this->Users[userFd].setHasPass();
 	}
-
+	
+	handleCapReq(userFd);
 	this->Users[userFd].tryRegisterUser();
 	std::cout << "New User on fd : " << userFd << std::endl;
 }
 
 void Server::parseInput(int clientFd) {
+	if (this->Users.size() <= 0) {
+		return ;
+	}
+
 	char input[BUFFER_SIZE];
 
 	int inputLength = read(clientFd, input, sizeof(input) - 1);
@@ -141,7 +165,7 @@ void Server::parseInput(int clientFd) {
 
 	input[inputLength] = '\0';
 
-	std::string &tmp = this->Users[clientFd].getInput();
+	std::string tmp;
 	tmp.append(input, inputLength);
 
 	size_t pos;
@@ -154,58 +178,83 @@ void Server::parseInput(int clientFd) {
 	}
 }
 
-void Server::handleLine(int clientFd, const std::string &line) {
-	if (line.find("NICK", 0) == 0) {
+void Server::handleLine(const int &clientFd, const std::string &line) {
+	if (line.find(CMD_CAP, 0) == 0) {
+		handleCapReq(clientFd);
+		return ;
+	} else if (line.find(CMD_PING, 0) == 0) {
+		handlePing(clientFd, line);
+		return ;
+	} else if (line.find(CMD_NICK, 0) == 0) {
 		handleNick(clientFd, line);
-	} else if (line.find("USER", 0) == 0) {
+		return ;
+	} else if (line.find(CMD_USER, 0) == 0) {
 		handleUsername(clientFd, line);
-	} else if (line.find("PASS", 0) == 0) {
+		return ;
+	} else if (line.find(CMD_PASS, 0) == 0) {
 		handlePass(clientFd, line);
-	}
-
-	if (!this->Users[clientFd].getIsRegister()) {
-		sendRPL(clientFd, ERR_NOTREGISTERED, "guest", ":please enter a nickname, username and pass if needer");
 		return ;
 	}
 
-	if (line.find("JOIN", 0) == 0) {
+	if (!this->Users[clientFd].getIsRegister()) {
+		if (!this->Users[clientFd].getHasNickname() && this->Users[clientFd].getWelcomeMessage()) {
+			sendRPL(clientFd, ERR_NOTREGISTERED, "guest", MSG_NEED_NICK);
+		}
+
+		if (!this->Users[clientFd].getHasUsername() && this->Users[clientFd].getWelcomeMessage()) {
+			sendRPL(clientFd, ERR_NOTREGISTERED, "guest", MSG_NEED_USER);
+		}
+		return ;
+	}
+
+	if (line.find(CMD_JOIN, 0) == 0) {
 		handleJoin(clientFd, line);
-	} else if (line.find("KICK", 0) == 0) {
+	} else if (line.find(CMD_PART, 0) == 0) {
+		handlePart(clientFd, line);
+	} else if (line.find(CMD_INVITE, 0) == 0) {
+		handleInvite(clientFd, line);
+	} else if (line.find(CMD_KICK, 0) == 0) {
 		handleKick(clientFd, line);
-	}
-	else if (line.find("PRIVMSG", 0) == 0) {
-		handleChannelMessage(clientFd, line);
-	}
-	else if (line.find("MODE", 0) == 0) {
+	} else if (line.find(CMD_PRIVMSG, 0) == 0) {
+		// Vérifier si c'est un DCC dans un PRIVMSG
+		if (line.find("DCC SEND") != std::string::npos) {
+			handleDccSend(clientFd, line);
+		} else if (line.find("DCC ACCEPT") != std::string::npos) {
+			handleDccAccept(clientFd, line);
+		} else {
+			handlePrivateMessage(clientFd, line);
+		}
+	} else if (line.find(CMD_DCC, 0) == 0) {
+		if (line.find("DCC SEND") != std::string::npos) {
+			handleDccSend(clientFd, line);
+		} else if (line.find("DCC ACCEPT") != std::string::npos) {
+			handleDccAccept(clientFd, line);
+		}
+	} else if (line.find(CMD_MODE, 0) == 0) {
 		handleMode(clientFd, line);
-	} else if (line.find("PASS", 0) == 0) {
-		handlePass(clientFd, line);
+	} else if (line.find(CMD_TOPIC, 0) == 0) {
+		handleTopic(clientFd, line);
 	} else {
-		sendRPL(clientFd, ERR_UNKNOWNCOMMAND, this->findNameById(clientFd), line + " this command is unknown" );
+		sendRPL(clientFd, ERR_UNKNOWNCOMMAND, this->findNameById(clientFd), line + " :" + MSG_ERR_UNKNOWNCOMMAND);
 	}
 }
 
-void Server::sendRPL(const int &clientFd, std::string code, const std::string &nick, const std::string &message) const {
-	std::string buffer = ":server " + code + " " + nick + " :" + message + "\r\n";
-	send(clientFd, buffer.c_str(), buffer.size(), 0);
-}
+void Server::handlePass(const int &clientFd, const std::string &line) {
 
-void Server::sendChannelError(const int &clientFd, const std::string &code, const std::string &nick, const std::string &channel, const std::string &message) const {
-	std::string buffer = ":server " + code + " " + nick + " " + channel + " :" + message + "\r\n";
-	send(clientFd, buffer.c_str(), buffer.size(), 0);
-}
-
-void Server::handlePass(const int clientFd, const std::string &line) {
 	if (this->password.empty()) {
 		return ;
 	}
 
-	std::string pass = getParam(PASS_CMD, line);
+	std::string pass = getParam(PASS_CMD_LENGTH, line);
+
 	if (pass.empty() || pass != this->password) {
-		sendRPL(clientFd, ERR_PASSWDMISMATCH, this->findNameById(clientFd), "Wrong password");
+		sendRPL(clientFd, ERR_PASSWDMISMATCH, this->findNameById(clientFd), MSG_ERR_PASSWDMISMATCH);
+		sendRPL(clientFd, ERR_YOUWILLBEBANNED, this->findNameById(clientFd), MSG_ERR_YOUWILLBEBANNED);
 		this->Users[clientFd].closeConnection();
 		return ;
 	}
+
+	this->Users[clientFd].setHasPass();
 }
 
 bool Server::hasPassword() const {
@@ -215,3 +264,23 @@ bool Server::hasPassword() const {
 	return (true);
 }
 
+void Server::handlePing(const int &clientFd, const std::string &line) {
+	const std::string param = getParam(PING_CMD_LENGTH, line);
+
+	if (param.empty()) {
+		sendRPL(clientFd, ERR_NOORIGIN, this->Users[clientFd].getNickname(), MSG_ERR_NOORIGIN);
+		return ;
+	}
+
+	const std::string pong = "PONG :" + param + "\r\n";
+
+	send(clientFd, pong.c_str(), pong.size(), 0);
+}
+
+void Server::broadcastToAllMember(Channel chanel, const std::string message) {
+	std::vector<int> members = chanel.getAllMembers();
+
+	for (std::vector<int>::iterator it = members.begin(); it != members.end(); ++it) {
+		send(*it, message.c_str(), message.size(), 0);
+	}
+}

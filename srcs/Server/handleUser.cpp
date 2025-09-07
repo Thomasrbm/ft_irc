@@ -10,48 +10,60 @@ bool Server::nickAlreadyInUse(const std::string &nick) {
 	return (false);
 }
 
-
 void Server::welcomeUser(const int &clientFd, const std::string &name) const {
 	sendRPL(clientFd, RPL_WELCOME, name, "Welcome to the IRC server " + name + "!");
 	sendRPL(clientFd, RPL_YOURHOST, name, "Your host is ircserv");
 	sendRPL(clientFd, RPL_CREATED, name, "This server was created today");
 }
 
-void Server::handleNick(int clientFd, const std::string &line) {
-	std::string nick = getParam(NICK_CMD, line);
+void Server::handleNick(const int &clientFd, const std::string &line) {
+	std::string nick = getParam(NICK_CMD_LENGTH, line);
 
 	if (nick.empty()) {
-		sendRPL(clientFd, ERR_NONICKNAMEGIVEN, this->findNameById(clientFd), "no nickname given");
+		sendERR_NEEDMOREPARAMS(clientFd, CMD_NICK);
 		return ;
 	}
 
 	if (this->nickAlreadyInUse(nick)) {
-		sendRPL(clientFd, ERR_NICKCOLLISION, this->findNameById(clientFd), "this nick is already in use");
+		sendRPL(clientFd, ERR_NICKNAMEINUSE, this->findNameById(clientFd), MSG_ERR_NICKNAMEINUSE);
+		return ;
+	}
+
+	if (nick.find('#') != std::string::npos) {
+		this->Users[clientFd].setHasNickname(false);
+		this->Users[clientFd].setHasRegister(false);
+		sendRPL(clientFd, ERR_NICKCOLLISION, this->findNameById(clientFd), MSG_ERR_INVALIDNICK);
 		return ;
 	}
 
 	this->Users[clientFd].setNickname(nick);
-
-	this->Users[clientFd].setHasNickname();
-
+	this->Users[clientFd].setHasNickname(true);
 	this->Users[clientFd].tryRegisterUser();
 
-	welcomeUser(clientFd, nick);
+	// Envoyer les messages de bienvenue seulement après enregistrement complet
+	if (this->Users[clientFd].getIsRegister() && !this->Users[clientFd].getWelcomeMessage()) {
+		welcomeUser(clientFd, nick);
+		this->Users[clientFd].hasWelcomeMessage();
+	}
 }
 
-void Server::handleUsername(int clientFd, const std::string &line) {
-	std::string username = getParam(USER_CMD, line);
+void Server::handleUsername(const int &clientFd, const std::string &line) {
+	std::string username = getParam(USER_CMD_LENGTH, line);
 
 	if (username.empty()) {
-		sendRPL(clientFd, ERR_NEEDMOREPARAMS, this->findNameById(clientFd), "no username given");
+		sendERR_NEEDMOREPARAMS(clientFd, CMD_USER);
 		return ;
 	}
 
 	this->Users[clientFd].setHasUsername();
-
 	this->Users[clientFd].setUsername(username);
-
 	this->Users[clientFd].tryRegisterUser();
+
+	// Envoyer les messages de bienvenue seulement après enregistrement complet
+	if (this->Users[clientFd].getIsRegister() && !this->Users[clientFd].getWelcomeMessage()) {
+		welcomeUser(clientFd, this->Users[clientFd].getNickname());
+		this->Users[clientFd].hasWelcomeMessage();
+	}
 }
 
 int Server::findIdByName(const std::string &name) const {
@@ -71,3 +83,4 @@ std::string Server::findNameById(const int &clientFd) const {
 	}
 	return (" ");
 }
+

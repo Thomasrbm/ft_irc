@@ -1,28 +1,24 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   Channel.hpp                                        :+:      :+:    :+:   */
-/*                                                                            */
-/* ************************************************************************** */
-
 #pragma once
 
 #include <iostream>
 #include <string>
 #include <set>
 #include <vector>
+#include <ctime>
 
 class Channel
 {
 private:
 	std::string		name;
-	std::string		topic;
 	std::string		key;			// mode k (mot de passe du channel)
 	bool			invite_only;	// mode i (invitation uniquement)
 	bool			topic_op_only;	// mode t (si actif seuls les ops peuvent changer le topic)
 	bool			has_key;		// mode k actif ? = les passwords
 	int				user_limit;		// mode l (limite d'utilisateurs, 0 = pas de limite)
 
+	std::string		topic;
+	std::string		topicSetter;
+	time_t			topicTimeSet;
 
 	// chaque user a un fd unique dont on regarde que le fd.  dont tab d int
 	int				host;
@@ -36,6 +32,8 @@ public:
 	Channel(const Channel &src);
 	Channel &operator=(const Channel &src);
 	~Channel();
+
+	int				user_joined;
 
 
 	// ===== GESTION DES MEMBRES =====
@@ -61,7 +59,7 @@ public:
 	void	resetUserLimit();			// mode l
 
 	// ===== GESTION DU TOPIC =====
-	bool	setTopic(int byFd, const std::string &topic); // respecte le mode t
+	bool	setTopic(int byFd, const std::string &topic, const std::string &setterName); // respecte le mode t
 	const std::string &getTopic() const;
 
 	// ===== GESTION DES INVITATIONS =====
@@ -69,10 +67,12 @@ public:
 	bool	isInvited(int fd) const;
 	void	clearInvite(int fd);
 
+
 	// ===== UTILITAIRES =====
 	const std::string	&getName() const;
 	std::vector<int>	getAllMembers() const;
 	const int 			&getHost() const;
+	bool				isSpace();
 
 	// ===== GETTERS POUR LES MODES =====
 	bool	getInviteOnly() const;
@@ -80,4 +80,7 @@ public:
 	bool	getHasKey() const;
 	int		getUserLimit() const;
 	const std::string &getKey() const;
+
+	const std::string &getTopicSetter() const {return(this->topicSetter);};
+	const time_t &getTopicTime() const {return(this->topicTimeSet);};
 };

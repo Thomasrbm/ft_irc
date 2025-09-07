@@ -1,10 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   Channel.cpp                                        :+:      :+:    :+:   */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "../includes/Channel.hpp"
 
 Channel::Channel()
@@ -13,6 +6,7 @@ Channel::Channel()
 	this->topic_op_only = false;
 	this->has_key = false;
 	this->user_limit = 0;
+	this->user_joined = 1;
 }
 
 Channel::Channel(const std::string &name, int creator)
@@ -22,6 +16,7 @@ Channel::Channel(const std::string &name, int creator)
 	this->topic_op_only = false;
 	this->has_key = false;
 	this->user_limit = 0;
+	this->user_joined = 1;
 
 	// le createur est membre + op direct a la creation
 	this->host = creator;
@@ -50,6 +45,10 @@ Channel &Channel::operator=(const Channel &src)
 	this->operators = src.operators;
 	this->users = src.users;
 	this->invited = src.invited;
+	this->user_joined = src.user_joined;
+	this->topicSetter = src.topicSetter;
+	this->topicTimeSet = src.topicTimeSet;
+
 	return (*this);
 }
 
@@ -186,15 +185,17 @@ void Channel::resetUserLimit()
 
 // ===== GESTION DU TOPIC =====
 
-bool Channel::setTopic(int user, const std::string &topic)
+bool Channel::setTopic(int user, const std::string &topic, const std::string &setterName)
 {
 	// si op only pour modif topic verif que bien op
-	if (this->topic_op_only && this->operators.find(user) == this->operators.end())
-	{
+	if (this->topic_op_only && this->operators.find(user) == this->operators.end()) {
 		std::cout << "Only operators can change the topic of this channel." << std::endl;
 		return (false);
 	}
 
+	time(&this->topicTimeSet);
+	this->topicSetter = setterName;
+	std::cout << topicSetter << std::endl;
 	this->topic = topic;
 	return (true);
 }
@@ -243,6 +244,18 @@ std::vector<int> Channel::getAllMembers() const
 		vector.push_back(*it); // derefenrence l iterateur envoit le contenu
 
 	return vector;
+}
+
+
+bool Channel::isSpace()
+{
+	std::cout << "test" << std::endl;
+	if (user_limit > 0)
+	{
+		if (user_joined == user_limit)
+			return (false);
+	}
+	return (true);
 }
 
 // ===== GETTERS POUR LES MODES =====
